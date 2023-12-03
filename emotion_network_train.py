@@ -27,11 +27,10 @@ def softmax(Z):
 
 def forwardProp(W1r, W1h, B1, W2, B2, X):
     #fix
-    outputs = np.zeros((216, 8))
-    hidden_states = np.zeroes((216, 10))
+    hidden_states = np.zeros((216, 10))
     hidden_layer = np.zeros((10, 1))
     for i in range(216):
-        hidden_layer = relu(W1r.dot(X[i]) + W1h.dot(hidden_layer) + B1)
+        hidden_layer = relu(W1r.dot(X[i]) + W1h.dot(hidden_layer).reshape(-1) + B1.reshape(-1))
         hidden_states[i] = hidden_layer
     Z2 = W2.dot(hidden_layer) + B2
     A2 = softmax(Z2)
@@ -40,7 +39,7 @@ def forwardProp(W1r, W1h, B1, W2, B2, X):
 def backwardProp(hidden_states, Z2, A2, W2, y):
     #fix
     Y = np.zeros((8,1))
-    Y[y][0] = 1
+    Y[int(y)][0] = 1
     dW1r, dW1h, dW2 = 0, 0, 0
     dB1, dB2 = 0, 0          
     dhidden_next = 0 
@@ -48,11 +47,12 @@ def backwardProp(hidden_states, Z2, A2, W2, y):
     for t in reversed(range(216)):
         
 
-        dB2_t = 
-        dhidden = W2.T.dot(dZ2) * relu_prime(hidden_states[i])
-        dW1r_t = dhidden @ sequence[t].T
+        dB2_t = 0.01
+        dhidden = W2.T.dot(gradient) * relu_prime(hidden_states[t])
+        dW1r_t = dhidden @ hidden_states[t].T
         dW1h_t = dhidden @ hidden_states[t-1].T if t > 0 else 0
-        dB1_t = 
+        dB1_t = 0.011
+        dW2_t = 0.011
 
 
         dW1r += dW1r_t
@@ -71,20 +71,20 @@ def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
     B2 -= alpha * np.sum(results[:,4]) / batch_size
     return W1r, W1h, B1, W2, B2
 
-def processSequence(batch, weights_biases):
-    x, y = batch
+def processSequence(sequence, weights_biases):
+    x, y = sequence
+    print(x.shape)
+    print("----")
     W1r, W1h, B1, W2, B2 = weights_biases
-    hidden_states, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x_batch)
-    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, Z2, A2)
+    hidden_states, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
+    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, Z2, A2, W2, y)
     return [dW1r, dW1h, dB1, dW2, dB2]
 
 def gradient_descent(X, Y, iterations, alpha):
     W1r, W1h, B1, W2, B2 = initParams()
     batch_size = 30
     for i in range(iterations):
-        for j in range(300/batch_size):
-            batch_dW1r, batch_dW1h, batch_dW2 = 0, 0, 0
-            batch_dB1, batch_dB2 = 0, 0
+        for j in range(int(300/batch_size)):
             x_batch = X[j*batch_size : (j*batch_size)+batch_size]
             y_batch = Y[j*batch_size : (j*batch_size)+batch_size]
             weights_biases = [W1r, W1h, B1, W2, B2]
@@ -94,7 +94,7 @@ def gradient_descent(X, Y, iterations, alpha):
             W1r, W1h, B1, W2, B2 = updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha)
     return W1r, W1h, B1, W2, B2
 
-
+gradient_descent(x_train, y_train, 10, 0.1)
 
 
 
