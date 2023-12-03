@@ -5,6 +5,9 @@ from functools import partial
 x_train = np.load("data/raw/x_train.npy")
 y_train = np.load("data/raw/y_train.npy")
 
+amount_correct = 0
+amount_tested = 0
+
 def initParams():
     W1r = np.random.randn(10, 13)
     W1h = np.random.randn(10, 10)
@@ -26,58 +29,64 @@ def softmax(Z):
     return probabilities
 
 def forwardProp(W1r, W1h, B1, W2, B2, X):
-    #fix
     hidden_states = np.zeros((216, 10))
+    hidden_states_u = np.zeros((216, 10))
     hidden_layer = np.zeros((10, 1))
     for i in range(216):
-        hidden_layer = relu(W1r.dot(X[i]) + W1h.dot(hidden_layer).reshape(-1) + B1.reshape(-1))
-        hidden_states[i] = hidden_layer
-    Z2 = W2.dot(hidden_layer) + B2
+        hidden_layer = W1r.dot(X[i]) + W1h.dot(hidden_layer).reshape(-1) + B1.reshape(-1)
+        hidden_states_u[i] = hidden_layer
+        hidden_states[i] = relu(hidden_layer)
+    Z2 = W2.dot(relu(hidden_layer)).reshape((8, 1)) + B2.reshape((8, 1))
     A2 = softmax(Z2)
-    return hidden_states, Z2, A2
+    return hidden_states, hidden_states_u, Z2, A2
 
-def backwardProp(hidden_states, Z2, A2, W2, y):
-    #fix
+def backwardProp(hidden_states, hidden_states_u, A2, W2, y, X):
     Y = np.zeros((8,1))
-    Y[int(y)][0] = 1
-    dW1r, dW1h, dW2 = 0, 0, 0
-    dB1, dB2 = 0, 0          
+    Y[int(y-1)][0] = 1
+    dW1r = np.zeros((10, 13))
+    dW1h = np.zeros((10, 10))
+    dB1 = np.zeros((10, 1))
+    dW2 = np.zeros((8, 10))
+    dB2 = np.zeros((8, 1))        
     dhidden_next = 0 
     gradient = A2 - Y
     for t in reversed(range(216)):
-        
-
-        dB2_t = 0.01
-        dhidden = W2.T.dot(gradient) * relu_prime(hidden_states[t])
-        dW1r_t = dhidden @ hidden_states[t].T
-        dW1h_t = dhidden @ hidden_states[t-1].T if t > 0 else 0
-        dB1_t = 0.011
-        dW2_t = 0.011
-
-
+        dW2_t = gradient.dot(hidden_states_u[t].reshape((1, 10)))
+        dB2_t = gradient / X.size
+        dhidden = W2.T.dot(gradient) * relu_prime(hidden_states[t].reshape((10, 1)))
+        dW1r_t = dhidden.reshape((10, 1)) @ X[t].reshape((1, 13))
+        dW1h_t = dhidden.reshape((10, 1)) @ hidden_states[t-1].reshape((1, 10)) if t > 0 else 0
+        dB1_t = dhidden / X.size
         dW1r += dW1r_t
         dW1h += dW1h_t
         dB1 += dB1_t
         dW2 += dW2_t
         dB2 += dB2_t
-
     return dW1r, dW1h, dB1, dW2, dB2
 
 def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
-    W1r -= alpha * np.sum(results[:,0]) / batch_size
-    W1h -= alpha * np.sum(results[:,1]) / batch_size
-    B1 -= alpha * np.sum(results[:,2]) / batch_size
-    W2 -= alpha * np.sum(results[:,3]) / batch_size
-    B2 -= alpha * np.sum(results[:,4]) / batch_size
+    dW1r = np.array([item[0] for item in results])
+    dW1h = np.array([item[1] for item in results])
+    dB1 = np.array([item[2] for item in results])
+    dW2 = np.array([item[3] for item in results])
+    dB2 = np.array([item[4] for item in results])
+    
+    W1r -= alpha * np.sum(dW1r) / batch_size
+    W1h -= alpha * np.sum(dW1h) / batch_size
+    B1 -= alpha * np.sum(dB1) / batch_size
+    W2 -= alpha * np.sum(dW2) / batch_size
+    B2 -= alpha * np.sum(dB2) / batch_size
     return W1r, W1h, B1, W2, B2
 
 def processSequence(sequence, weights_biases):
+    global amount_correct, amount_tested
     x, y = sequence
-    print(x.shape)
-    print("----")
     W1r, W1h, B1, W2, B2 = weights_biases
-    hidden_states, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
-    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, Z2, A2, W2, y)
+    hidden_states, hidden_states_u, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
+    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, hidden_states_u, A2, W2, y, x)
+    if (np.argmax(A2)==y):
+        amount_correct += 1
+    amount_tested += 1
     return [dW1r, dW1h, dB1, dW2, dB2]
 
 def gradient_descent(X, Y, iterations, alpha):
@@ -92,6 +101,7 @@ def gradient_descent(X, Y, iterations, alpha):
             with Pool(processes=batch_size) as pool:
                 results = pool.map(partial_function, zip(x_batch, y_batch))
             W1r, W1h, B1, W2, B2 = updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha)
+        print("iteration: {}, accuracy: {}".format(i, amount_correct/Y.size))
     return W1r, W1h, B1, W2, B2
 
 gradient_descent(x_train, y_train, 10, 0.1)
