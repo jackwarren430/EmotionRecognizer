@@ -9,11 +9,11 @@ amount_correct = 0
 amount_tested = 0
 
 def initParams():
-    W1r = np.random.randn(10, 13)
-    W1h = np.random.randn(10, 10)
-    B1 = np.random.randn(10, 1)
-    W2 = np.random.randn(8, 10)
-    B2 = np.random.randn(8, 1)
+    W1r = np.random.randn(10, 13) * np.sqrt(2. / 13)
+    W1h = np.random.randn(10, 10) * np.sqrt(2. / 10)
+    B1 = np.zeros((10, 1))
+    W2 = np.random.randn(8, 10) * np.sqrt(2. / 10)
+    B2 = np.zeros((8, 1))
     return W1r, W1h, B1, W2, B2
 
 def relu(Z):
@@ -23,9 +23,12 @@ def relu_prime(Z):
     return Z > 0
 
 def softmax(Z):
+    #fix
+    #print(Z)
     shift_z = Z - np.max(Z, 0)
     exp_scores = np.exp(shift_z)
     probabilities = exp_scores / np.sum(exp_scores, 0)
+    #print(probabilities)
     return probabilities
 
 def forwardProp(W1r, W1h, B1, W2, B2, X):
@@ -38,6 +41,8 @@ def forwardProp(W1r, W1h, B1, W2, B2, X):
         hidden_states[i] = relu(hidden_layer)
     Z2 = W2.dot(relu(hidden_layer)).reshape((8, 1)) + B2.reshape((8, 1))
     A2 = softmax(Z2)
+    #A2 not looking right
+    print("---\n{}\n---".format(B1))
     return hidden_states, hidden_states_u, Z2, A2
 
 def backwardProp(hidden_states, hidden_states_u, A2, W2, y, X):
@@ -48,20 +53,29 @@ def backwardProp(hidden_states, hidden_states_u, A2, W2, y, X):
     dB1 = np.zeros((10, 1))
     dW2 = np.zeros((8, 10))
     dB2 = np.zeros((8, 1))        
-    dhidden_next = 0 
     gradient = A2 - Y
+    dB2 = gradient / 13
+    #print("---\n{}\n---".format(A2))
     for t in reversed(range(216)):
+
         dW2_t = gradient.dot(hidden_states_u[t].reshape((1, 10)))
-        dB2_t = gradient / X.size
+        #if(t==210):
+            #print("---\n{}\n---".format(gradient))
+            #print("---\n{}\n---".format(dW2_t))
         dhidden = W2.T.dot(gradient) * relu_prime(hidden_states[t].reshape((10, 1)))
-        dW1r_t = dhidden.reshape((10, 1)) @ X[t].reshape((1, 13))
-        dW1h_t = dhidden.reshape((10, 1)) @ hidden_states[t-1].reshape((1, 10)) if t > 0 else 0
-        dB1_t = dhidden / X.size
+        dW1r_t = dhidden.reshape((10, 1)).dot(X[t].reshape((1, 13)))
+        dW1h_t = dhidden.reshape((10, 1)).dot(hidden_states[t-1].reshape((1, 10))) / 216 if t > 0 else 0
+        dB1_t = dhidden / (13*216)
+
         dW1r += dW1r_t
         dW1h += dW1h_t
         dB1 += dB1_t
         dW2 += dW2_t
-        dB2 += dB2_t
+    dW2 /= 216
+    dW1r /= 216
+    dW1h /= 216
+    dB1 /= 216
+    #print("---\n{}\n---".format(dW2))
     return dW1r, dW1h, dB1, dW2, dB2
 
 def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
@@ -70,17 +84,17 @@ def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
     dB1 = np.array([item[2] for item in results])
     dW2 = np.array([item[3] for item in results])
     dB2 = np.array([item[4] for item in results])
-    
-    W1r -= alpha * np.sum(dW1r) / batch_size
-    W1h -= alpha * np.sum(dW1h) / batch_size
-    B1 -= alpha * np.sum(dB1) / batch_size
-    W2 -= alpha * np.sum(dW2) / batch_size
-    B2 -= alpha * np.sum(dB2) / batch_size
+    W1r -= alpha * np.sum(dW1r, 0) / batch_size
+    W1h -= alpha * np.sum(dW1h, 0) / batch_size
+    B1 -= alpha * np.sum(dB1, 0) / batch_size
+    W2 -= alpha * np.sum(dW2, 0) / batch_size
+    B2 -= alpha * np.sum(dB2, 0) / batch_size
     return W1r, W1h, B1, W2, B2
 
 def processSequence(sequence, weights_biases):
     global amount_correct, amount_tested
     x, y = sequence
+    x = (x - np.mean(x)) / np.std(x)
     W1r, W1h, B1, W2, B2 = weights_biases
     hidden_states, hidden_states_u, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
     dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, hidden_states_u, A2, W2, y, x)
@@ -101,10 +115,10 @@ def gradient_descent(X, Y, iterations, alpha):
             with Pool(processes=batch_size) as pool:
                 results = pool.map(partial_function, zip(x_batch, y_batch))
             W1r, W1h, B1, W2, B2 = updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha)
-        print("iteration: {}, accuracy: {}".format(i, amount_correct/Y.size))
+        #print("iteration: {}, accuracy: {}".format(i, amount_correct/amount_tested))
     return W1r, W1h, B1, W2, B2
 
-gradient_descent(x_train, y_train, 10, 0.1)
+gradient_descent(x_train, y_train, 1, 0.01)
 
 
 
