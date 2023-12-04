@@ -24,58 +24,67 @@ def relu_prime(Z):
 
 def softmax(Z):
     #fix
-    #print(Z)
     shift_z = Z - np.max(Z, 0)
     exp_scores = np.exp(shift_z)
     probabilities = exp_scores / np.sum(exp_scores, 0)
-    #print(probabilities)
     return probabilities
 
 def forwardProp(W1r, W1h, B1, W2, B2, X):
     hidden_states = np.zeros((216, 10))
     hidden_states_u = np.zeros((216, 10))
     hidden_layer = np.zeros((10, 1))
+    outputs = np.zeros((216, 8))
     for i in range(216):
         hidden_layer = W1r.dot(X[i]) + W1h.dot(hidden_layer).reshape(-1) + B1.reshape(-1)
+        #print("\nt: {}, hidden: {}\n".format(i, hidden_layer))
         hidden_states_u[i] = hidden_layer
         hidden_states[i] = relu(hidden_layer)
-    Z2 = W2.dot(relu(hidden_layer)).reshape((8, 1)) + B2.reshape((8, 1))
-    A2 = softmax(Z2)
-    #A2 not looking right
-    print("---\n{}\n---".format(B1))
-    return hidden_states, hidden_states_u, Z2, A2
+        Z2 = W2.dot(relu(hidden_layer)).reshape((8, 1)) + B2.reshape((8, 1))
+        A2 = softmax(Z2)
+        outputs[i] = A2.reshape(-1)
+    return hidden_states, hidden_states_u, outputs, Z2, A2
 
-def backwardProp(hidden_states, hidden_states_u, A2, W2, y, X):
+def backwardProp(hidden_states, hidden_states_u, outputs, A2, W2, y, X):
     Y = np.zeros((8,1))
     Y[int(y-1)][0] = 1
     dW1r = np.zeros((10, 13))
     dW1h = np.zeros((10, 10))
     dB1 = np.zeros((10, 1))
     dW2 = np.zeros((8, 10))
-    dB2 = np.zeros((8, 1))        
-    gradient = A2 - Y
-    dB2 = gradient / 13
-    #print("---\n{}\n---".format(A2))
+    dB2 = np.zeros((8, 1))
+    #test updating the gradient each time with each output - t1       
+    #gradient = A2 - Y
+    #test with just this or accumilating - t2
+    #dB2 = gradient / 13
+    #dW2 = gradient.dot(hidden_states[215].reshape((1, 10)))
+    dh_dht_1 = 1
     for t in reversed(range(216)):
+        gradient = outputs[t] - Y
+        threshold = 5
+        gradient_norm = np.linalg.norm(gradient, ord=2)
+        if gradient_norm > threshold:
+            gradient = (gradient / gradient_norm) * threshold
+        
+        #dy/dh
+        dy_dh = 
+        #dh_t/dh_t-1
+        dht = 
+        dh_dht_1 = dh_dht_1.dot(dht)
+        #dh_t-1/dWxh
+        dht1_dW1r = 
+        dht1_dW1h = 
 
-        dW2_t = gradient.dot(hidden_states_u[t].reshape((1, 10)))
-        #if(t==210):
-            #print("---\n{}\n---".format(gradient))
-            #print("---\n{}\n---".format(dW2_t))
-        dhidden = W2.T.dot(gradient) * relu_prime(hidden_states[t].reshape((10, 1)))
-        dW1r_t = dhidden.reshape((10, 1)).dot(X[t].reshape((1, 13)))
-        dW1h_t = dhidden.reshape((10, 1)).dot(hidden_states[t-1].reshape((1, 10))) / 216 if t > 0 else 0
-        dB1_t = dhidden / (13*216)
+        dW1r_t = gradient.dot(dy_dh.dot(dh_dht_1.dot(dht1_dW1r)))
+        dW1h_t = gradient.dot(dy_dh.dot(dh_dht_1.dot(dht1_dW1h)))
 
+        
+
+        dW2 += dW2_t
+        dB2 += dB2_t
         dW1r += dW1r_t
         dW1h += dW1h_t
         dB1 += dB1_t
-        dW2 += dW2_t
-    dW2 /= 216
-    dW1r /= 216
-    dW1h /= 216
-    dB1 /= 216
-    #print("---\n{}\n---".format(dW2))
+
     return dW1r, dW1h, dB1, dW2, dB2
 
 def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
@@ -91,13 +100,15 @@ def updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha):
     B2 -= alpha * np.sum(dB2, 0) / batch_size
     return W1r, W1h, B1, W2, B2
 
-def processSequence(sequence, weights_biases):
+def processSequence(x, y, weights_biases):
     global amount_correct, amount_tested
-    x, y = sequence
+    #fix back to partial function
+    #x, y = sequence
     x = (x - np.mean(x)) / np.std(x)
+    print(np.ptp(x))
     W1r, W1h, B1, W2, B2 = weights_biases
-    hidden_states, hidden_states_u, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
-    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, hidden_states_u, A2, W2, y, x)
+    hidden_states, hidden_states_u, outputs, Z2, A2 = forwardProp(W1r, W1h, B1, W2, B2, x)
+    dW1r, dW1h, dB1, dW2, dB2 = backwardProp(hidden_states, hidden_states_u, outputs, A2, W2, y, x)
     if (np.argmax(A2)==y):
         amount_correct += 1
     amount_tested += 1
@@ -107,13 +118,19 @@ def gradient_descent(X, Y, iterations, alpha):
     W1r, W1h, B1, W2, B2 = initParams()
     batch_size = 30
     for i in range(iterations):
-        for j in range(int(300/batch_size)):
+        #for j in range(int(300/batch_size)):
+        for j in range(1):
             x_batch = X[j*batch_size : (j*batch_size)+batch_size]
             y_batch = Y[j*batch_size : (j*batch_size)+batch_size]
             weights_biases = [W1r, W1h, B1, W2, B2]
-            partial_function = partial(processSequence, weights_biases=weights_biases)
-            with Pool(processes=batch_size) as pool:
-                results = pool.map(partial_function, zip(x_batch, y_batch))
+
+            #partial_function = partial(processSequence, weights_biases=weights_biases)
+            #with Pool(processes=batch_size) as pool:
+                #results = pool.map(partial_function, zip(x_batch, y_batch))
+
+            #test
+            results = processSequence(X[0], Y[0], weights_biases)
+            
             W1r, W1h, B1, W2, B2 = updateParams(W1r, W1h, B1, W2, B2, results, batch_size, alpha)
         #print("iteration: {}, accuracy: {}".format(i, amount_correct/amount_tested))
     return W1r, W1h, B1, W2, B2
