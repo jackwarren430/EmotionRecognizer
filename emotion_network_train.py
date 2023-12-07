@@ -27,7 +27,6 @@ def tanh(Z):
     return np.tanh(Z)
 
 def tanh_prime(Z):
-    #print("\nnp.tanh(Z):\n{}\ntanhprime:\n{}\n".format(np.tanh(Z), 1 - np.tanh(Z)**2))
     return 1 - np.tanh(Z)**2
 
 def softmax(Z):
@@ -39,8 +38,8 @@ def forwardProp(Wx, Wh, B1, Wo, B2, X):
     hidden_states_u = np.zeros((216, 10))
     hidden_layer = np.zeros((10, 1))
     for i in range(216):
-        #print("$$$$$$$$\n$$$$$$$\nwx . x:\n{}\n\nwh . h:\n{}\n\n$$$$$$$$$\n$$$$$$$$\n".format(Wx.dot(X[i]), Wh.dot(hidden_layer).reshape(-1)))
-        hidden_layer = (Wx.dot(X[i]) + Wh.dot(hidden_layer).reshape(-1) + B1.reshape(-1))/2
+        hidden_layer = Wx.dot(X[i]) + Wh.dot(hidden_layer).reshape(-1) + B1.reshape(-1)
+        hidden_layer = 2*((hidden_layer - np.min(hidden_layer)) / (np.max(hidden_layer) - np.min(hidden_layer))) - 1
         hidden_states_u[i] = hidden_layer
         hidden_states[i] = relu(hidden_layer)
     Z = Wo.dot(relu(hidden_layer)).reshape((8, 1)) + B2.reshape((8, 1))
@@ -158,7 +157,7 @@ def gradient_descent(X, Y, iterations, alpha):
             print("accuracy: {}".format(amount_correct/amount_tested))
     return Wx, Wh, B1, Wo, B2
 
-Wx, Wh, B1, Wo, B2 = gradient_descent(x_train, y_train, 1000, 0.1)
+Wx, Wh, B1, Wo, B2 = gradient_descent(x_train, y_train, 1000, 0.2)
 
 np.save("./data/weightsBiases/Wx.npy", Wx)
 np.save("./data/weightsBiases/Wh.npy", Wh)
