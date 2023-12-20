@@ -9,6 +9,7 @@ mean = np.mean(x_train, axis=(0, 1))
 std_dev = np.std(x_train, axis=(0, 1))
 std_dev[std_dev == 0] = 1
 x_train = (x_train - mean) / std_dev
+np.random.shuffle(x_train)
 
 amount_correct = 0
 amount_tested = 0
@@ -87,6 +88,8 @@ def backwardProp(forward_results, weights_biases, y, X):
     dWhz, dWhr, dWhh = (np.zeros((10, 10)), np.zeros((10, 10)), np.zeros((10, 10)))
     dBz, dBr, dBh = (np.zeros((10, 1)), np.zeros((10, 1)), np.zeros((10, 1)))
     dL_dZ2 = A - Y
+    #print(Whr)
+    #print(dL_dZ2)
     dBo = dL_dZ2
     dWo = dL_dZ2 @ H_layers[-1].T
     dL_dh = Wo.T @ dL_dZ2
@@ -101,6 +104,9 @@ def backwardProp(forward_results, weights_biases, y, X):
         dz_dBz = sigmoid_prime(Uz_layers[t])
         #hold = "******\nt: {}\ndL_dh:\n{}\n\ndh_dz:\n{}\n\ndz_dWxz:\n{}\n\n"
         #print(hold.format(t, dL_dh, dh_dz, dz_dWxz))
+        #print(Whr.shape)
+        #print((sigmoid_prime(Ur_layers[t]) * Whr).shape)
+        #print(dL_dh.shape)
         dWxz += dL_dh * (dh_dz * dz_dWxz)
         dWhz += dL_dh * (dh_dz * dz_dWhz)
         dBz += dL_dh * (dh_dz * dz_dBz)
@@ -117,11 +123,12 @@ def backwardProp(forward_results, weights_biases, y, X):
         dr_dWxr = sigmoid_prime(Ur_layers[t]) @ X[t].T.reshape(1, 13)
         dr_dWhr = sigmoid_prime(Ur_layers[t]) @ H_prev.T
         dr_dBr = sigmoid_prime(Ur_layers[t])
+        #print(Whh)
         dWxr += dL_dh * (dh_dr * dr_dWxr)
         dWhr += dL_dh * (dh_dr * dr_dWhr)
         dBr += dL_dh * (dh_dr * dr_dBr)
-    
-        dh_dhprev = (1 - Z_layers[t]) - ((Whz @ sigmoid_prime(Uz_layers[t])) * H_prev) + ((Whz @ sigmoid_prime(Uz_layers[t])) * Hhat_layers[t]) + (Z_layers[t] * (Whh @ (((Whr @ sigmoid_prime(Ur_layers[t])) * H_prev) + R_layers[t])) * tanh_prime(Uh_layers[t]))
+        
+        dh_dhprev = (1 - Z_layers[t]) - ((Whz @ sigmoid_prime(Uz_layers[t])) * H_prev) + ((Whz @ sigmoid_prime(Uz_layers[t])) * Hhat_layers[t]) + (Z_layers[t] * ((Whh @ (((Whr @ sigmoid_prime(Ur_layers[t])) * H_prev) + R_layers[t])) * tanh_prime(Uh_layers[t])))
         hold = "*****\nt: {}\ndL_dh:\n{}\n\ndh_dhprev: \n{}\n\ncombined:\n{}\n\n"
         #print(hold.format(t, dL_dh, dh_dhprev, dL_dh * dh_dhprev))
         dL_dh = dL_dh * dh_dhprev
@@ -191,7 +198,7 @@ def gradient_descent(X, Y, iterations, alpha):
             print("accuracy: {}".format(amount_correct/amount_tested))
     return Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo
 
-Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 10)
+Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
 
 np.save("./data/weightsBiases/Wxz.npy", Wxz)
 np.save("./data/weightsBiases/Whz.npy", Whz)
