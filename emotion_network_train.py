@@ -50,20 +50,20 @@ def softmax(Z):
 
 def forwardProp(weights_biases, X):
     Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
-    Uz_layers = np.zeros((216, 10))
-    Z_layers = np.zeros((216, 10))
-    Ur_layers = np.zeros((216, 10))
-    R_layers = np.zeros((216, 10))
-    Uh_layers = np.zeros((216, 10))
-    Hhat_layers = np.zeros((216, 10))
-    H_layers = np.zeros((216, 10))
+    Uz_layers = np.zeros((216, 10, 1))
+    Z_layers = np.zeros((216, 10, 1))
+    Ur_layers = np.zeros((216, 10, 1))
+    R_layers = np.zeros((216, 10, 1))
+    Uh_layers = np.zeros((216, 10, 1))
+    Hhat_layers = np.zeros((216, 10, 1))
+    H_layers = np.zeros((216, 10, 1))
     H = np.zeros((10, 1))
     for t in range(216):
-        Uz = Wxz @ X[t] + Whz @ H + Bz
+        Uz = Wxz @ X[t].reshape(13, 1) + Whz @ H.reshape(10, 1) + Bz.reshape(10, 1)
         Z = sigmoid(Uz)
-        Ur = Wxr @ X[t] + Whr @ H + Br
+        Ur = Wxr @ X[t].reshape(13, 1) + Whr @ H.reshape(10, 1) + Br.reshape(10, 1)
         R = sigmoid(Ur)
-        Uh = Wxh @ X[t] + Whh @ (R * H) + Bh
+        Uh = Wxh @ X[t].reshape(13, 1) + Whh @ (R * H).reshape(10, 1) + Bh.reshape(10, 1)
         Hhat = tanh(Uh)
         H = (1 - Z) * H + Z * Hhat
         Uz_layers[t] = Uz
@@ -75,80 +75,94 @@ def forwardProp(weights_biases, X):
         H_layers[t] = H
     Z2 = Wo @ H + Bo
     A = softmax(Z2)
-    return Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, Hhat_layers, Z2, A
+    return Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A
 
-def calculateGradients(foward_results, weights_biases, t, X):
-    Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, Hhat_layers, Z2, A = foward_results
-    Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
-    if (t == 0):
-        #base case
-        return
-    dh_Wxz, dh_Whz, dh_Bz, dh_Wxr, dh_Whr, dh_Br, dh_Wxh, dh_Whh, dh_Bh, dh_Wo, dh_Bo = calculateGradients(foward_results, weights_biases, t)
-    dh_Wxz = (sigmoid_prime(Uz_layers[t]) @ (X[t] + Whz @ ))
-    dh_Whz
-    dh_Bz
-    dh_Wxr
-    dh_Whr
-    dh_Br
-    dh_Wxh
-    dh_Whh
-    dh_Bh
-    dh_Wo
-    dh_Bo
-    return dh_Wxz, dh_Whz, dh_Bz, dh_Wxr, dh_Whr, dh_Br, dh_Wxh, dh_Whh, dh_Bh, dh_Wo, dh_Bo
 
-def backwardProp(foward_results, weights_biases, y, X):
+def backwardProp(forward_results, weights_biases, y, X):
     Y = np.zeros((8,1))
     Y[int(y-1)][0] = 1
-    
-    t = 216
-    dh_Wxz, dh_Whz, dh_Bz, dh_Wxr, dh_Whr, dh_Br, dh_Wxh, dh_Whh, dh_Bh, dh_Wo, dh_Bo = calculateGradients(foward_results, weights_biases, t, X)
-    dWxz
-    dWhz
-    dBz
-    dWxr
-    dWhr
-    dBr
-    dWxh
-    dWhh
-    dBh
-    dWo
-    dBo
+    Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A = forward_results
+    Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
+    dWxz, dWxr, dWxh = (np.zeros((10, 13)), np.zeros((10, 13)), np.zeros((10, 13)))
+    dWhz, dWhr, dWhh = (np.zeros((10, 10)), np.zeros((10, 10)), np.zeros((10, 10)))
+    dBz, dBr, dBh = (np.zeros((10, 1)), np.zeros((10, 1)), np.zeros((10, 1)))
+    dL_dZ2 = A - Y
+    dBo = dL_dZ2
+    dWo = dL_dZ2 @ H_layers[-1].T
+    dL_dh = Wo.T @ dL_dZ2
+    for t in reversed(range(216)):
+        H_prev = H_layers[t - 1] if t >= 0 else np.zeros(10, 1)
 
+        dh_dz = Hhat_layers[t] - H_prev
+        
+
+        dz_dWxz = sigmoid_prime(Uz_layers[t]) @ X[t].T.reshape(1, 13)
+        dz_dWhz = sigmoid_prime(Uz_layers[t]) @ H_prev.T
+        dz_dBz = sigmoid_prime(Uz_layers[t])
+        #hold = "******\nt: {}\ndL_dh:\n{}\n\ndh_dz:\n{}\n\ndz_dWxz:\n{}\n\n"
+        #print(hold.format(t, dL_dh, dh_dz, dz_dWxz))
+        dWxz += dL_dh * (dh_dz * dz_dWxz)
+        dWhz += dL_dh * (dh_dz * dz_dWhz)
+        dBz += dL_dh * (dh_dz * dz_dBz)
+
+        dh_dhh = Z_layers[t]
+        dhh_dWxh = tanh_prime(Uh_layers[t]) @ X[t].T.reshape(1, 13)
+        dhh_dWhh = tanh_prime(Uh_layers[t]) @ (R_layers[t] * H_prev).T
+        dhh_dBh = tanh_prime(Uh_layers[t])
+        dWxh += dL_dh * (dh_dhh * dhh_dWxh)
+        dWhh += dL_dh * (dh_dhh * dhh_dWhh)
+        dBh += dL_dh * (dh_dhh * dhh_dBh)
+
+        dh_dr = Z_layers[t] * tanh_prime(Uh_layers[t]) * (Whh @ H_prev)
+        dr_dWxr = sigmoid_prime(Ur_layers[t]) @ X[t].T.reshape(1, 13)
+        dr_dWhr = sigmoid_prime(Ur_layers[t]) @ H_prev.T
+        dr_dBr = sigmoid_prime(Ur_layers[t])
+        dWxr += dL_dh * (dh_dr * dr_dWxr)
+        dWhr += dL_dh * (dh_dr * dr_dWhr)
+        dBr += dL_dh * (dh_dr * dr_dBr)
+    
+        dh_dhprev = (1 - Z_layers[t]) - ((Whz @ sigmoid_prime(Uz_layers[t])) * H_prev) + ((Whz @ sigmoid_prime(Uz_layers[t])) * Hhat_layers[t]) + (Z_layers[t] * (Whh @ (((Whr @ sigmoid_prime(Ur_layers[t])) * H_prev) + R_layers[t])) * tanh_prime(Uh_layers[t]))
+        hold = "*****\nt: {}\ndL_dh:\n{}\n\ndh_dhprev: \n{}\n\ncombined:\n{}\n\n"
+        #print(hold.format(t, dL_dh, dh_dhprev, dL_dh * dh_dhprev))
+        dL_dh = dL_dh * dh_dhprev
    
-    '''
-    Wx_threshold = 5
-    dWx_norm = np.linalg.norm(dWx, ord=2)
-    if dWx_norm > Wx_threshold:
-        dWx *= Wx_threshold / dWx_norm
-    '''
     return dWxz, dWhz, dBz, dWxr, dWhr, dBr, dWxh, dWhh, dBh, dWo, dBo
 
-def updateParams(Wx, Wh, B1, Wo, B2, results, batch_size, alpha):
-    dWx = np.array([item[0] for item in results])
-    dWh = np.array([item[1] for item in results])
-    dB1 = np.array([item[2] for item in results])
-    dWo = np.array([item[3] for item in results])
-    dB2 = np.array([item[4] for item in results])
-    hold = "\n\n-----------\n\ndWx:\n{}\n---\ndWh:\n{}\n---\ndB1:\n{}\n\n\n\n-----------".format(np.sum(dWx, 0), np.sum(dWh, 0), np.sum(dB1, 0))
-    Wx -= alpha * np.sum(dWx, 0) / batch_size
-    Wh -= alpha * np.sum(dWh, 0) / batch_size
-    B1 -= alpha * np.sum(dB1, 0) / batch_size
+def updateParams(weights_biases, gradients, batch_size, alpha):
+    Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
+    dWxz = np.array([item[0] for item in gradients])
+    dWhz = np.array([item[1] for item in gradients])
+    dBz = np.array([item[2] for item in gradients])
+    dWxr = np.array([item[3] for item in gradients])
+    dWhr = np.array([item[4] for item in gradients])
+    dBr = np.array([item[5] for item in gradients])
+    dWxh = np.array([item[6] for item in gradients])
+    dWhh = np.array([item[7] for item in gradients])
+    dBh = np.array([item[8] for item in gradients])
+    dWo = np.array([item[9] for item in gradients])
+    dBo = np.array([item[10] for item in gradients])
+    Wxz -= alpha * np.sum(dWxz, 0) / batch_size
+    Whz -= alpha * np.sum(dWhz, 0) / batch_size
+    Bz -= alpha * np.sum(dBz, 0) / batch_size
+    Wxr -= alpha * np.sum(dWxr, 0) / batch_size
+    Whr -= alpha * np.sum(dWhr, 0) / batch_size
+    Br -= alpha * np.sum(dBr, 0) / batch_size
+    Wxh -= alpha * np.sum(dWxh, 0) / batch_size
+    Whh -= alpha * np.sum(dWhh, 0) / batch_size
+    Bh -= alpha * np.sum(dBh, 0) / batch_size
     Wo -= alpha * np.sum(dWo, 0) / batch_size
-    B2 -= alpha * np.sum(dB2, 0) / batch_size
-    hold2 = "\n\n-----------\n\nWx_updated:\n{}\n---\ndWh_updated:\n{}\n---\ndB1_updated:\n{}\n\n\n\n-----------".format(Wx, Wh, B1)
-    #print(hold + hold2)
+    Bo -= alpha * np.sum(dBo, 0) / batch_size
 
-    return Wx, Wh, B1, Wo, B2
+    return Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo
 
 
 #def processSequence(x, y, weights_biases):
 def processSequence(sequence, weights_biases):
     global amount_correct, amount_tested
     X, y = sequence
-    foward_results = forwardProp(weights_biases, X)
-    gradients = backwardProp(foward_results, y, X)
-    if (np.argmax(A) == y):
+    forward_results = forwardProp(weights_biases, X)
+    gradients = backwardProp(forward_results, weights_biases, y, X)
+    if (np.argmax(forward_results[-1]) == y):
         amount_correct += 1
     amount_tested += 1
     return gradients
@@ -172,19 +186,24 @@ def gradient_descent(X, Y, iterations, alpha):
             Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = updateParams(weights_biases, gradients, batch_size, alpha)
             
 
-            #processSequence(X[j], Y[j], weights_biases)
+            
             print("\namount_correct:{}".format(amount_correct))
             print("accuracy: {}".format(amount_correct/amount_tested))
-    return Wx, Wh, B1, Wo, B2
+    return Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo
 
-Wx, Wh, B1, Wo, B2 = gradient_descent(x_train, y_train, 1000, 0.2)
+Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 10)
 
-np.save("./data/weightsBiases/Wx.npy", Wx)
-np.save("./data/weightsBiases/Wh.npy", Wh)
-np.save("./data/weightsBiases/B1.npy", B1)
+np.save("./data/weightsBiases/Wxz.npy", Wxz)
+np.save("./data/weightsBiases/Whz.npy", Whz)
+np.save("./data/weightsBiases/Bz.npy", Bz)
+np.save("./data/weightsBiases/Wxr.npy", Wxr)
+np.save("./data/weightsBiases/Whr.npy", Whr)
+np.save("./data/weightsBiases/Br.npy", Br)
+np.save("./data/weightsBiases/Wxh.npy", Wxh)
+np.save("./data/weightsBiases/Whh.npy", Whh)
+np.save("./data/weightsBiases/Bh.npy", Bh)
 np.save("./data/weightsBiases/Wo.npy", Wo)
-np.save("./data/weightsBiases/B2.npy", B2)
-
+np.save("./data/weightsBiases/Bo.npy", Bo)
 
 
 
