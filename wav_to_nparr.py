@@ -4,9 +4,9 @@ import os
 
 
 count = 0
-y_train = np.zeros(300)
-x_train = np.zeros((300, 216, 13))
-for i in range(5):
+y_train = np.zeros(1200)
+x_train = np.zeros((1200, 216, 13))
+for i in range(20):
     if i + 1 < 10:
         folder = "Actor_0" + str(i+1)
     else:
@@ -26,10 +26,13 @@ for i in range(5):
             mfccs = np.pad(mfccs, pad_width=((0, 0), (0, pad_width)), mode='constant')
         else:
             mfccs = mfccs[:, :fixed_length]
-        mfccs_normalized = mfccs / np.amax(mfccs)
+        #mfccs_normalized = mfccs / np.amax(mfccs)
+        mean = np.mean(mfccs, axis=0)
+        std_dev = np.std(mfccs, axis=0)
+        std_dev[std_dev == 0] = 1
+        mfccs = (mfccs - mean) / std_dev
         x_train[count] = mfccs.T
         count = count + 1
-
-
+np.random.shuffle(x_train)
 np.save("data/raw/x_train.npy", x_train)
 np.save("data/raw/y_train.npy", y_train)
