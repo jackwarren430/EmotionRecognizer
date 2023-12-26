@@ -27,12 +27,20 @@ for i in range(20):
         else:
             mfccs = mfccs[:, :fixed_length]
         #mfccs_normalized = mfccs / np.amax(mfccs)
+        
         mean = np.mean(mfccs, axis=0)
         std_dev = np.std(mfccs, axis=0)
         std_dev[std_dev == 0] = 1
         mfccs = (mfccs - mean) / std_dev
+        
         x_train[count] = mfccs.T
         count = count + 1
+'''
+mean = np.mean(x_train, axis=(0,1))
+std_dev = np.std(x_train, axis=(0,1))
+std_dev[std_dev == 0] = 1
+x_train = (x_train - mean) / std_dev
+'''
 np.random.shuffle(x_train)
 np.save("data/raw/x_train.npy", x_train)
 np.save("data/raw/y_train.npy", y_train)
