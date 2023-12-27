@@ -2,10 +2,10 @@ import librosa
 import numpy as np
 import os
 
-
+fixed_length = 115
 count = 0
 y_train = np.zeros(1200)
-x_train = np.zeros((1200, 216, 13))
+x_train = np.zeros((1200, fixed_length, 13))
 for i in range(20):
     if i + 1 < 10:
         folder = "Actor_0" + str(i+1)
@@ -20,7 +20,6 @@ for i in range(20):
         audio, sr = librosa.load(file_path_load, sr=16000) 
         mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
 
-        fixed_length = 216
         if mfccs.shape[1] < fixed_length:
             pad_width = fixed_length - mfccs.shape[1]
             mfccs = np.pad(mfccs, pad_width=((0, 0), (0, pad_width)), mode='constant')
@@ -35,12 +34,15 @@ for i in range(20):
         
         x_train[count] = mfccs.T
         count = count + 1
+
+        
 '''
 mean = np.mean(x_train, axis=(0,1))
 std_dev = np.std(x_train, axis=(0,1))
 std_dev[std_dev == 0] = 1
 x_train = (x_train - mean) / std_dev
 '''
+
 np.random.shuffle(x_train)
 np.save("data/raw/x_train.npy", x_train)
 np.save("data/raw/y_train.npy", y_train)
