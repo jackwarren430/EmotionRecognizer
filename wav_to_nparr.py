@@ -2,7 +2,7 @@ import librosa
 import numpy as np
 import os
 
-fixed_length = 115
+fixed_length = 115 - 30
 count = 0
 y_train = np.zeros(1200)
 x_train = np.zeros((1200, fixed_length, 13))
@@ -18,7 +18,8 @@ for i in range(20):
         y_train[count] = emotion_class
         file_path_load = file_path + "/" + file_list[j]
         audio, sr = librosa.load(file_path_load, sr=16000) 
-        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
+        #print(librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13).shape)
+        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)[:, 40:]
 
         if mfccs.shape[1] < fixed_length:
             pad_width = fixed_length - mfccs.shape[1]

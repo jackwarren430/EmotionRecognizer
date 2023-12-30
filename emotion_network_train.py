@@ -5,7 +5,7 @@ from functools import partial
 x_train = np.load("data/raw/x_train.npy", allow_pickle=True)
 y_train = np.load("data/raw/y_train.npy", allow_pickle=True)
 
-s_length = 115
+s_length = 115 - 30
 
 amount_correct = 0
 amount_tested = 0
@@ -62,10 +62,21 @@ def forwardProp(weights_biases, X):
         R = sigmoid(Ur)
         Uh = Wxh @ X[t].reshape(13, 1) + Whh @ (R * H).reshape(10, 1) + Bh.reshape(10, 1)
         Hhat = tanh(Uh)
-        H = (1 - Z) * Hhat + Z * H
+        Hprev = H
+        H = ((1 - Z) * Hhat) + (Z * H)
         #print("****\nt: {}\nH:\n{}".format(t, Hhat))
         #print(t)
-        #print(X[t])
+        #print(Uh)
+        '''
+        print("##########\nt: {}\n".format(t))
+        print("X: \n{}\n".format(X[t]))
+        print("Z: \n{}\n".format(Z))
+        print("R: \n{}\n".format(R))
+        print("Hhat: \n{}\n".format(Hhat))
+        print("Hidden layer: \n{}\n".format(H))
+        print("Hprev:\n{}\n".format(Hprev))
+        print("-----------")
+        '''
         Uz_layers[t] = Uz
         Z_layers[t] = Z
         Ur_layers[t] = Ur
@@ -102,9 +113,9 @@ def backwardProp(forward_results, weights_biases, y, X):
 
         
         d1 = Zt * d0
-        d2 = H_prev * d0
+        d2 = H_prev * d0 # H_prev * d0
         d3 = Hhat * d0
-        d4 = -1 * d3
+        d4 = -1 * d3  # -1 * Hhat * d0
         d5 = d2 + d4
         d6 = (1 - Zt) * d0
         d7 = d5 * (Zt * (1 - Zt))
@@ -134,9 +145,17 @@ def backwardProp(forward_results, weights_biases, y, X):
 
         
         dH_prev = d12 + d14 + d1 + d17
-        #print(dH_prev)
-        if (t == 129):
+        '''
+        if (t == 114):
+            print(t)
+            print(d2)
+            print(d4)
+            print(d2 + d4)
+            print("*****")
             print(H_prev)
+            print(Hhat)
+        '''
+        
         d0 = d0 * dH_prev
 
 
@@ -221,8 +240,8 @@ def gradient_descent(X, Y, iterations, alpha):
             print("accuracy: {}".format(amount_correct/amount_tested))
     return weights_biases
 
-#processSequence([x_train[0], y_train[0]], initParams())
-Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
+processSequence([x_train[0], y_train[0]], initParams())
+#Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
 
 np.save("./data/weightsBiases/Wxz.npy", Wxz)
 np.save("./data/weightsBiases/Whz.npy", Whz)
