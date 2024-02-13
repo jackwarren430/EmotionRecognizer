@@ -81,14 +81,16 @@ def backwardProp(forward_results, weights_biases, y, X):
     Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
     dWxz, dWxr, dWxh = (np.zeros((10, 13)), np.zeros((10, 13)), np.zeros((10, 13)))
     dWhz, dWhr, dWhh = (np.zeros((10, 10)), np.zeros((10, 10)), np.zeros((10, 10)))
+    dWo = np.zeros((8, 10))
     dBz, dBr, dBh = (np.zeros((10, 1)), np.zeros((10, 1)), np.zeros((10, 1)))
-    dL_dZ2 = A - Y
-    dBo = dL_dZ2 / 13
-    dWo = dL_dZ2 @ H_layers[-1].T
-    dL_dh = Wo.T @ dL_dZ2
-    d0 = dL_dh
+    dBo = np.zeros((8, 1))
     for t in reversed(range(X.shape[0])):
         #print(d0)
+        dL_dZ2 = A_layers[t] - Y
+        dBo += dL_dZ2
+        dWo += dL_dZ2 @ H_layers[-1].T
+        dL_dh = Wo.T @ dL_dZ2
+        d0 = dL_dh
 
         Xt = X[t]
         H_prev = H_layers[t - 1] if t > 0 else np.zeros((10, 1))
@@ -225,8 +227,8 @@ def gradient_descent(X, Y, iterations, alpha):
             print("accuracy: {}".format(amount_correct/amount_tested))
     return weights_biases
 
-processSequence([x_train[0], y_train[0]], initParams())
-#Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
+#processSequence([x_train[0], y_train[0]], initParams())
+Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
 
 np.save("./data/weightsBiases/Wxz.npy", Wxz)
 np.save("./data/weightsBiases/Whz.npy", Whz)
