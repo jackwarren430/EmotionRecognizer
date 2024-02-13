@@ -54,6 +54,7 @@ def forwardProp(weights_biases, X):
     Uh_layers = np.zeros((s_length, 10, 1))
     Hhat_layers = np.zeros((s_length, 10, 1))
     H_layers = np.zeros((s_length, 10, 1))
+    A_layers = np.zeros((s_length, 8, 1))
     H = np.zeros((10, 1))
     for t in range(s_length):
         Uz = Wxz @ X[t].reshape(13, 1) + Whz @ H.reshape(10, 1) + Bz.reshape(10, 1)
@@ -62,37 +63,21 @@ def forwardProp(weights_biases, X):
         R = sigmoid(Ur)
         Uh = Wxh @ X[t].reshape(13, 1) + Whh @ (R * H).reshape(10, 1) + Bh.reshape(10, 1)
         Hhat = tanh(Uh)
-        Hprev = H
+        Z2 = Wo @ H + Bo
+        A = softmax(Z2)
         H = ((1 - Z) * Hhat) + (Z * H)
-        #print("****\nt: {}\nH:\n{}".format(t, Hhat))
-        #print(t)
-        #print(Uh)
-        '''
-        print("##########\nt: {}\n".format(t))
-        print("X: \n{}\n".format(X[t]))
-        print("Z: \n{}\n".format(Z))
-        print("R: \n{}\n".format(R))
-        print("Hhat: \n{}\n".format(Hhat))
-        print("Hidden layer: \n{}\n".format(H))
-        print("Hprev:\n{}\n".format(Hprev))
-        print("-----------")
-        '''
-        Uz_layers[t] = Uz
         Z_layers[t] = Z
-        Ur_layers[t] = Ur
         R_layers[t] = R
-        Uh_layers[t] = Uh
         Hhat_layers[t] = Hhat 
         H_layers[t] = H
-    Z2 = Wo @ H + Bo
-    A = softmax(Z2)
-    return Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A
+        A_layers[t] = A
+    return Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A_layers
 
 
 def backwardProp(forward_results, weights_biases, y, X):
     Y = np.zeros((8,1))
     Y[int(y-1)][0] = 1
-    Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A = forward_results
+    Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A_layers = forward_results
     Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
     dWxz, dWxr, dWxh = (np.zeros((10, 13)), np.zeros((10, 13)), np.zeros((10, 13)))
     dWhz, dWhr, dWhh = (np.zeros((10, 10)), np.zeros((10, 10)), np.zeros((10, 10)))
