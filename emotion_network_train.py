@@ -29,7 +29,11 @@ def initParams():
     return [Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo]
 
 def sigmoid(v):
-    return 1 / (1 + np.exp(-v))
+    try:
+        a = 1 / (1 + np.exp(-v))
+    except RuntimeWarning:
+        print("ERROR ECOUNTED HERE ------------------")
+    return a
 
 def sigmoid_prime(v):
     sv = sigmoid(v)
@@ -88,7 +92,7 @@ def backwardProp(forward_results, weights_biases, y, X):
         #print(d0)
         dL_dZ2 = A_layers[t] - Y
         dBo += dL_dZ2
-        dWo += dL_dZ2 @ H_layers[-1].T
+        dWo += dL_dZ2 @ H_layers[t].T
         dL_dh = Wo.T @ dL_dZ2
         d0 = dL_dh
 
@@ -110,12 +114,12 @@ def backwardProp(forward_results, weights_biases, y, X):
         #d9 = Wxh.T @ d8
         d10 = Whh.T @ d8
         #d11 = Wxz.T @ d7
-        d12 = Whz.T @ d7
-        d14 = d10 * Rt
+        #d12 = Whz.T @ d7
+        #d14 = d10 * Rt
         d15 = d10 * H_prev
         d16 = d15 * (Rt * (1 - Rt))
         #d13 = Wxr.T @ d16
-        d17 = Whr.T @ d16
+        #d17 = Whr.T @ d16
 
 
         dWxr += d16 @ Xt.reshape(1, 13)
@@ -130,9 +134,9 @@ def backwardProp(forward_results, weights_biases, y, X):
         dBz += d7
         dBh += d8
 
-        dH_prev = d12 + d14 + d1 + d17
-        d0 = d0 * dH_prev
-
+        #dH_prev = d12 + d14 + d1 + d17
+        #d0 = d0 * dH_prev
+        #print("***:\nt: {}\n{}".format(t, dBr))
 
 
 
@@ -172,8 +176,6 @@ def backwardProp(forward_results, weights_biases, y, X):
     dBh /= 13
     '''
 
-
-
     return [dWxz, dWhz, dBz, dWxr, dWhr, dBr, dWxh, dWhh, dBh, dWo, dBo]
     #[Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo]
 
@@ -182,6 +184,8 @@ def updateParams(weights_biases, gradients, batch_size, alpha):
     for i in range(11):
         d = np.array([item[i] for item in gradients])
         weights_biases[i] -= alpha * np.sum(d, 0) / batch_size
+        #if i==4:
+            #print(alpha * np.sum(d, 0) / batch_size)
     return weights_biases
 
 
@@ -192,7 +196,7 @@ def processSequence(sequence, weights_biases):
     gradients = backwardProp(forward_results, weights_biases, y, X)
     if (np.argmax(forward_results[-1][-1]) == y):
         amount_correct += 1
-    amount_tested += 1
+        amount_tested += 1
     return gradients
 
 def gradient_descent(X, Y, iterations, alpha):
@@ -200,20 +204,21 @@ def gradient_descent(X, Y, iterations, alpha):
     weights_biases = initParams()
     batch_size = 6
     for i in range(iterations):
-        print("\n ITERATION: {}\n".format(i + 1))
         for j in range(int(X.shape[0]/batch_size)):
             x_batch = X[j*batch_size : (j*batch_size)+batch_size]
             y_batch = Y[j*batch_size : (j*batch_size)+batch_size]
             partial_function = partial(processSequence, weights_biases=weights_biases)
+            amount_correct = 0
             with Pool(processes=batch_size) as pool:
                 gradients = pool.map(partial_function, zip(x_batch, y_batch))
             weights_biases = updateParams(weights_biases, gradients, batch_size, alpha)
-            print("\namount_correct:{}".format(amount_correct))
-            print("accuracy: {}".format(amount_correct/amount_tested))
+            print("\n ITERATION: {}\n".format(i + 1))
+            print("\namount_correct:{}".format(amount_tested))
+            print("accuracy: {}".format(amount_correct/batch_size))
     return weights_biases
 
-processSequence([x_train[0], y_train[0]], initParams())
-#Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
+#processSequence([x_train[0], y_train[0]], initParams())
+Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
 
 np.save("./data/weightsBiases/Wxz.npy", Wxz)
 np.save("./data/weightsBiases/Whz.npy", Whz)

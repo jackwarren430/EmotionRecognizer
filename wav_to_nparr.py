@@ -44,6 +44,8 @@ std_dev[std_dev == 0] = 1
 x_train = (x_train - mean) / std_dev
 '''
 
-np.random.shuffle(x_train)
-np.save("data/raw/x_train.npy", x_train)
-np.save("data/raw/y_train.npy", y_train)
+shuffled_indices = np.arange(len(x_train))
+np.random.shuffle(shuffled_indices)
+
+np.save("data/raw/x_train.npy", x_train[shuffled_indices])
+np.save("data/raw/y_train.npy", y_train[shuffled_indices])
