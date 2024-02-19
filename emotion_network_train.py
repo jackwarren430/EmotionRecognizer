@@ -5,16 +5,15 @@ from functools import partial
 x_train = np.load("data/raw/x_train.npy", allow_pickle=True)
 y_train = np.load("data/raw/y_train.npy", allow_pickle=True)
 
-s_length = 115 - 30
+s_length = 90 - 20
 
 amount_correct = 0
-amount_tested = 0
+amount_tested = 1
 
 def initParams():
     xl = np.sqrt(6 / (10 + 13))
     hl = np.sqrt(6 / (10 + 10))
     ol = np.sqrt(6 / (8 + 10))
-    np.random.uniform(-xl, xl, size=(10, 13))
     Wxz = np.random.uniform(-xl, xl, size=(10, 13))
     Whz = np.random.uniform(-hl, hl, size=(10, 10))
     Bz = np.zeros((10, 1))
@@ -29,11 +28,7 @@ def initParams():
     return [Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo]
 
 def sigmoid(v):
-    try:
-        a = 1 / (1 + np.exp(-v))
-    except RuntimeWarning:
-        print("ERROR ECOUNTED HERE ------------------")
-    return a
+    return 1 / (1 + np.exp(-v))
 
 def sigmoid_prime(v):
     sv = sigmoid(v)
@@ -51,11 +46,8 @@ def softmax(Z):
 
 def forwardProp(weights_biases, X):
     Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
-    Uz_layers = np.zeros((s_length, 10, 1))
     Z_layers = np.zeros((s_length, 10, 1))
-    Ur_layers = np.zeros((s_length, 10, 1))
     R_layers = np.zeros((s_length, 10, 1))
-    Uh_layers = np.zeros((s_length, 10, 1))
     Hhat_layers = np.zeros((s_length, 10, 1))
     H_layers = np.zeros((s_length, 10, 1))
     A_layers = np.zeros((s_length, 8, 1))
@@ -75,21 +67,20 @@ def forwardProp(weights_biases, X):
         Hhat_layers[t] = Hhat 
         H_layers[t] = H
         A_layers[t] = A
-    return Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A_layers
+    return Z_layers, R_layers, Hhat_layers, H_layers, A_layers
 
 
 def backwardProp(forward_results, weights_biases, y, X):
     Y = np.zeros((8,1))
     Y[int(y-1)][0] = 1
-    Uz_layers, Z_layers, Ur_layers, R_layers, Uh_layers, Hhat_layers, H_layers, Z2, A_layers = forward_results
+    Z_layers, R_layers, Hhat_layers, H_layers, A_layers = forward_results
     Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = weights_biases
     dWxz, dWxr, dWxh = (np.zeros((10, 13)), np.zeros((10, 13)), np.zeros((10, 13)))
     dWhz, dWhr, dWhh = (np.zeros((10, 10)), np.zeros((10, 10)), np.zeros((10, 10)))
     dWo = np.zeros((8, 10))
     dBz, dBr, dBh = (np.zeros((10, 1)), np.zeros((10, 1)), np.zeros((10, 1)))
     dBo = np.zeros((8, 1))
-    for t in reversed(range(X.shape[0])):
-        #print(d0)
+    for t in reversed(range(s_length)):
         dL_dZ2 = A_layers[t] - Y
         dBo += dL_dZ2
         dWo += dL_dZ2 @ H_layers[t].T
@@ -121,7 +112,6 @@ def backwardProp(forward_results, weights_biases, y, X):
         #d13 = Wxr.T @ d16
         #d17 = Whr.T @ d16
 
-
         dWxr += d16 @ Xt.reshape(1, 13)
         dWxz += d7 @ Xt.reshape(1, 13)
         dWxh += d8 @ Xt.reshape(1, 13)
@@ -134,60 +124,47 @@ def backwardProp(forward_results, weights_biases, y, X):
         dBz += d7
         dBh += d8
 
-        #dH_prev = d12 + d14 + d1 + d17
-        #d0 = d0 * dH_prev
-        #print("***:\nt: {}\n{}".format(t, dBr))
 
-
-
-        '''
-        dh_dz = np.diag((Hhat_layers[t] - H_prev).flatten())
-        dz_dWxz = sigmoid_prime(Uz_layers[t]) @ X[t].T.reshape(1, 13)
-        dz_dWhz = sigmoid_prime(Uz_layers[t]) @ H_prev.T
-        dz_dBz = sigmoid_prime(Uz_layers[t])
-        
-        dWxz += dL_dh * (dh_dz @ dz_dWxz)
-        dWhz += dL_dh * (dh_dz @ dz_dWhz)
-        dBz += dL_dh * (dh_dz @ dz_dBz)
-
-        dh_dhh = np.diag(Z_layers[t].flatten())
-        dhh_dWxh = tanh_prime(Uh_layers[t]) @ X[t].T.reshape(1, 13)
-        dhh_dWhh = tanh_prime(Uh_layers[t]) @ (R_layers[t] * H_prev).T
-        dhh_dBh = tanh_prime(Uh_layers[t])
-        dWxh += dL_dh * (dh_dhh @ dhh_dWxh)
-        dWhh += dL_dh * (dh_dhh @ dhh_dWhh)
-        dBh += dL_dh * (dh_dhh @ dhh_dBh)
-
-        dh_dr = np.diag(Z_layers[t].flatten()) @ ((Whh @ np.diag(H_prev.flatten())) * tanh_prime(Uh_layers[t]))
-        dr_dWxr = sigmoid_prime(Ur_layers[t]) @ X[t].T.reshape(1, 13)
-        dr_dWhr = sigmoid_prime(Ur_layers[t]) @ H_prev.T
-        dr_dBr = sigmoid_prime(Ur_layers[t])
-        dWxr += dL_dh * (dh_dr @ dr_dWxr)
-        dWhr += dL_dh * (dh_dr @ dr_dWhr)
-        dBr += dL_dh * (dh_dr @ dr_dBr)
-        
-        dh_dhprev = np.diag((1 - Z_layers[t]).flatten()) + (sigmoid_prime(Uz_layers[t]) * Whz.T * (Hhat_layers[t] - H_prev)) + (np.diag(Z_layers[t].flatten()) @ (Whr.T * sigmoid_prime(Ur_layers[t])) @ (np.diag(H_prev.flatten()) @ Whh.T * tanh_prime(Uh_layers[t])))
-        #print("######\nt: {}\nterm\n{}\n\n".format(t, dL_dh))
-        dL_dh = dh_dhprev @ dL_dh
-        
+    '''
+    gradients = [dWxz, dWhz, dWxr, dWhr, dWxh, dWhh, dWo]
+    threshold = 3
+    for i in range(7):
+        norm = np.linalg.norm(gradients[i], ord=2)
+        if norm > threshold:
+            gradients[i] *= threshold / norm
+    gradients.insert(7, dBo)
+    gradients.insert(6, dBh)
+    gradients.insert(4, dBr)
+    gradients.insert(2, dBz)
     
+
     dBz /= 13
     dBr /= 13
-    dBh /= 13
+    Bh /= 13
+    dBo /= 13
     '''
 
-    return [dWxz, dWhz, dBz, dWxr, dWhr, dBr, dWxh, dWhh, dBh, dWo, dBo]
-    #[Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo]
+    gradients = [dWxz, dWhz, dBz, dWxr, dWhr, dBr, dWxh, dWhh, dBh, dWo, dBo]
+    threshold = 3
+    for i in range(11):
+        norm = np.linalg.norm(gradients[i], ord=2)
+        if norm > threshold:
+            gradients[i] *= threshold / norm
+    
+    
+    return gradients
+    
 
 def updateParams(weights_biases, gradients, batch_size, alpha):
-    #print("********")
     for i in range(11):
         d = np.array([item[i] for item in gradients])
         weights_biases[i] -= alpha * np.sum(d, 0) / batch_size
-        #if i==4:
-            #print(alpha * np.sum(d, 0) / batch_size)
     return weights_biases
 
+def updateParamsLinear(weights_biases, gradients, batch_size, alpha):
+    for i in range(11):
+        weights_biases[i] -= alpha * gradients[i]
+    return weights_biases
 
 def processSequence(sequence, weights_biases):
     global amount_correct, amount_tested
@@ -199,7 +176,18 @@ def processSequence(sequence, weights_biases):
         amount_tested += 1
     return gradients
 
-def gradient_descent(X, Y, iterations, alpha):
+def processSequenceLinear(X, y, weights_biases):
+    global amount_correct, amount_tested
+    forward_results = forwardProp(weights_biases, X)
+    gradients = backwardProp(forward_results, weights_biases, y, X)
+    for i in range(forward_results[-1].shape[0]):
+        if (np.argmax(forward_results[-1][i]) == y):
+            amount_correct += 1
+        amount_tested += 1
+    return gradients
+
+
+def gradientDescent(X, Y, iterations, alpha):
     global amount_correct, amount_tested
     weights_biases = initParams()
     batch_size = 6
@@ -217,8 +205,29 @@ def gradient_descent(X, Y, iterations, alpha):
             print("accuracy: {}".format(amount_correct/batch_size))
     return weights_biases
 
+
+
+def gradientDescentLinear(X, Y, iterations, alpha):
+    global amount_correct, amount_tested
+    weights_biases = initParams()
+    batch_size = 6
+    for i in range(iterations):
+        print("\n ITERATION: {}\n".format(i + 1))
+        for j in range(X.shape[0]):
+            gradients = processSequenceLinear(X[j], Y[j], weights_biases)
+            weights_biases = updateParamsLinear(weights_biases, gradients, batch_size, alpha)
+            if (j % 10 == 0):
+                print("accuracy: {}".format(100 * amount_correct/amount_tested))
+        amount_correct = 0
+        amount_tested = 1
+        for i in range(11):
+            print(weights_biases[i])
+    return weights_biases
+
+
 #processSequence([x_train[0], y_train[0]], initParams())
-Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradient_descent(x_train, y_train, 1000, 0.1)
+#Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradientDescent(x_train, y_train, 1000, 0.01)
+Wxz, Whz, Bz, Wxr, Whr, Br, Wxh, Whh, Bh, Wo, Bo = gradientDescentLinear(x_train, y_train, 1000, 0.001)
 
 np.save("./data/weightsBiases/Wxz.npy", Wxz)
 np.save("./data/weightsBiases/Whz.npy", Whz)
